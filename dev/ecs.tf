@@ -37,6 +37,7 @@ resource "aws_ecs_service" "ecs-service" {
   network_configuration { 
     security_groups = [module.sg.alb-sg-id]
     subnets         = tolist(module.vpc.public-subnets-ids)
+    assign_public_ip = true
   }
 
   load_balancer {
@@ -45,7 +46,6 @@ resource "aws_ecs_service" "ecs-service" {
     container_port   = var.container-port
   }
 
-  #depends_on = [aws_lb_listener.ecs-lb-listener]
 }
 
 resource "aws_iam_role" "execution_role" {
@@ -89,3 +89,45 @@ resource "aws_iam_policy_attachment" "ecr_read_policy_attachment" {
 
   policy_arn = aws_iam_policy.ecr_read_policy.arn
 }
+
+#Last Part Created, due to time constraints, didn't use a lot of variables
+resource "aws_cloudwatch_metric_alarm" "cpu_alarm" {
+  alarm_name          = "ecs-cpu-utilization"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = "60"
+  statistic           = "Average"
+  threshold           = "70"  # Adjust as needed
+  alarm_description  = "Scale out if CPU utilization is high"
+  alarm_actions      = [aws_appautoscaling_policy.ecs_service_scale_out.arn]
+  dimensions = {
+    ClusterName = var.cluster-name
+    ServiceName = var.service-name
+  }
+}
+
+resource "aws_appautoscaling_target" "ecs_service" {
+  service_namespace  = "ecs"
+  resource_id        = "service/${aws_ecs_cluster.ecs-cluster.name}/${aws_ecs_service.ecs-service.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  min_capacity       = 2  # Minimum number of tasks
+  max_capacity       = 10 # Maximum number of tasks
+}
+
+resource "aws_appautoscaling_policy" "ecs_service_scale_out" {
+  name               = var.cluster-name
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = "service/${var.cluster-name}/${var.service-name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs" 
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+    target_value = 70  
+  }
+}
+
