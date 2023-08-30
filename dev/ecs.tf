@@ -11,12 +11,12 @@ resource "aws_ecs_task_definition" "ecs-task-def" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = var.task-def-cpu
   memory                   = var.task-def-memory
-  execution_role_arn = aws_iam_role.execution_role.arn
+  execution_role_arn       = aws_iam_role.execution_role.arn
   container_definitions = jsonencode([{
-    name  = "latest",
-    image = "650939046310.dkr.ecr.us-west-2.amazonaws.com/webapp:latest",
-    cpu       = 256
-    memory    = 512
+    name   = "latest",
+    image  = "650939046310.dkr.ecr.us-west-2.amazonaws.com/webapp:latest",
+    cpu    = 256
+    memory = 512
     portMappings = [
       {
         containerPort = 80,
@@ -34,9 +34,9 @@ resource "aws_ecs_service" "ecs-service" {
   desired_count   = var.des-count
   launch_type     = var.launch-type
 
-  network_configuration { 
-    security_groups = [module.sg.alb-sg-id]
-    subnets         = tolist(module.vpc.public-subnets-ids)
+  network_configuration {
+    security_groups  = [module.sg.alb-sg-id]
+    subnets          = tolist(module.vpc.public-subnets-ids)
     assign_public_ip = true
   }
 
@@ -84,7 +84,7 @@ resource "aws_iam_policy" "ecr_read_policy" {
 }
 
 resource "aws_iam_policy_attachment" "ecr_read_policy_attachment" {
-  name = "ecr-read-policy-attachment"
+  name  = "ecr-read-policy-attachment"
   roles = [aws_iam_role.execution_role.name]
 
   policy_arn = aws_iam_policy.ecr_read_policy.arn
@@ -99,9 +99,9 @@ resource "aws_cloudwatch_metric_alarm" "cpu_alarm" {
   namespace           = "AWS/ECS"
   period              = "60"
   statistic           = "Average"
-  threshold           = "70"  # Adjust as needed
-  alarm_description  = "Scale out if CPU utilization is high"
-  alarm_actions      = [aws_appautoscaling_policy.ecs_service_scale_out.arn]
+  threshold           = "70" # Adjust as needed
+  alarm_description   = "Scale out if CPU utilization is high"
+  alarm_actions       = [aws_appautoscaling_policy.ecs_service_scale_out.arn]
   dimensions = {
     ClusterName = var.cluster-name
     ServiceName = var.service-name
@@ -121,13 +121,13 @@ resource "aws_appautoscaling_policy" "ecs_service_scale_out" {
   policy_type        = "TargetTrackingScaling"
   resource_id        = "service/${var.cluster-name}/${var.service-name}"
   scalable_dimension = "ecs:service:DesiredCount"
-  service_namespace  = "ecs" 
+  service_namespace  = "ecs"
 
   target_tracking_scaling_policy_configuration {
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
     }
-    target_value = 70  
+    target_value = 70
   }
 }
 
